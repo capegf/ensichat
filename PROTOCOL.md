@@ -220,6 +220,70 @@ After this message has been received, communication with normal messages
 may start.
 
 
+### Route Request (Protocol-Type = 2)
+
+Sent to request a route to a specific Target Address.
+
+     0                   1                   2                   3
+     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |           OrigSeqNum          |          TargSeqNum           |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |         OriginMetric          |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+Equivalent to the Sequence Number in the message header.
+
+If an Invalid route exists in the Local Route Set matching
+TargAddr using longest prefix matching and has a valid
+sequence number, set TargSeqNum = LocalRoute.SeqNum.
+Otherwise, set TargSeqNum = 0.
+
+Set OrigMetric = RouterClient.Cost for the Router Client entry
+which includes OrigAddr.
+
+### Route Reply (Protocol-Type = 3)
+
+Sent as a reply when a Route Request arrives, to inform other nodes
+about a route.
+
+     0                   1
+     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |          TargMetric           |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+Set TargMetric = RouterClient.Cost for the Router Client entry
+which includes TargAddr.
+
+### Route Error (Protocol-Type = 4)
+
+Notifies other nodes of routes that are no longer available. The target
+address MUST be set to the broadcast address.
+
+     0                   1                   2                   3
+     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                                                               |
+    |                   Packet Source (32 bytes)                    |
+    |                                                               |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                                                               |
+    |                      Address (32 bytes)                       |
+    |                                                               |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |            SeqNum             |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+Packet Source is the source address of the message triggering this
+Route Error. If the route error is not triggered by a message,
+this MUST be set to the null address.
+
+Address is the address that is no longer reachable.
+
+SeqNum is the sequence number of the route that is no longer available
+(if known).
+
 Content Messages
 ----------------
 
