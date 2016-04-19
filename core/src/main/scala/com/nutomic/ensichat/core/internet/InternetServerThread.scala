@@ -6,13 +6,15 @@ import java.net.ServerSocket
 import com.nutomic.ensichat.core.interfaces.Log
 import com.nutomic.ensichat.core.{Crypto, Message}
 
-class InternetServerThread(crypto: Crypto, onConnected: (InternetConnectionThread) => Unit,
-                   onDisconnected: (InternetConnectionThread) => Unit, onReceive: (Message, InternetConnectionThread) => Unit) extends Thread {
+class InternetServerThread(crypto: Crypto, port: Int,
+                           onConnected: (InternetConnectionThread) => Unit,
+                           onDisconnected: (InternetConnectionThread) => Unit,
+                           onReceive: (Message, InternetConnectionThread) => Unit) extends Thread {
 
   private val Tag = "InternetServerThread"
 
   private lazy val socket: Option[ServerSocket] = try {
-    Option(new ServerSocket(InternetInterface.ServerPort))
+    Option(new ServerSocket(port))
   } catch {
     case e: IOException =>
       Log.w(Tag, "Failed to create server socket", e)

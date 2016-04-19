@@ -118,7 +118,7 @@ class Crypto(settings: SettingsInterface, keyFolder: File) {
    * @throws RuntimeException If the key does not exist.
    */
   @throws[RuntimeException]
-  private[core] def getPublicKey(address: Address): PublicKey = {
+  def getPublicKey(address: Address): PublicKey = {
     loadKey(address.toString, classOf[PublicKey])
   }
 
@@ -128,7 +128,7 @@ class Crypto(settings: SettingsInterface, keyFolder: File) {
    * @throws RuntimeException If a key already exists for this address.
    */
   @throws[RuntimeException]
-  private[core] def addPublicKey(address: Address, key: PublicKey): Unit = {
+  def addPublicKey(address: Address, key: PublicKey): Unit = {
     if (havePublicKey(address))
       throw new RuntimeException("Already have key for " + address + ", not overwriting")
 

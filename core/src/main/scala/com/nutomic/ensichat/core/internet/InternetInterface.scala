@@ -9,11 +9,12 @@ import com.nutomic.ensichat.core.util.FutureHelper
 import com.nutomic.ensichat.core.{Address, ConnectionHandler, Crypto, Message}
 
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 import scala.util.Random
 
 object InternetInterface {
 
-  val ServerPort = 26344
+  val DefaultPort = 26344
 
 }
 
@@ -23,13 +24,13 @@ object InternetInterface {
  * @param maxConnections Maximum number of concurrent connections that should be opened.
  */
 class InternetInterface(connectionHandler: ConnectionHandler, crypto: Crypto,
-                        settings: SettingsInterface, maxConnections: Int)
+                        settings: SettingsInterface, maxConnections: Int, port: Int)
   extends TransmissionInterface {
 
   private val Tag = "InternetInterface"
 
   private lazy val serverThread =
-    new InternetServerThread(crypto, onConnected, onDisconnected, onReceiveMessage)
+    new InternetServerThread(crypto, port, onConnected, onDisconnected, onReceiveMessage)
 
   private var connections = Set[InternetConnectionThread]()
 
@@ -43,10 +44,8 @@ class InternetInterface(connectionHandler: ConnectionHandler, crypto: Crypto,
       .replace("46.101.249.188:26344", SettingsInterface.DefaultAddresses)
     settings.put(SettingsInterface.KeyAddresses, servers)
 
-    FutureHelper {
-      serverThread.start()
-      openAllConnections(maxConnections)
-    }
+    serverThread.start()
+    openAllConnections(maxConnections)
   }
 
   /**
@@ -68,13 +67,13 @@ class InternetInterface(connectionHandler: ConnectionHandler, crypto: Crypto,
       .foreach(openConnection)
   }
 
-  private def openConnection(addressPort: String): Unit = {
+  def openConnection(addressPort: String): Unit = {
     val (address, port) =
       if (addressPort.contains(":")) {
         val split = addressPort.split(":")
         (split(0), split(1).toInt)
       } else
-        (addressPort, InternetInterface.ServerPort)
+        (addressPort, InternetInterface.DefaultPort)
 
     openConnection(address, port)
   }
@@ -84,14 +83,13 @@ class InternetInterface(connectionHandler: ConnectionHandler, crypto: Crypto,
    */
   private def openConnection(address: String, port: Int): Unit = {
     Log.i(Tag, s"Attempting connection to $address:$port")
-    try {
+    Future {
       val socket = new Socket(InetAddress.getByName(address), port)
       val ct = new InternetConnectionThread(socket, crypto, onDisconnected, onReceiveMessage)
       connections += ct
       ct.start()
-    } catch {
-      case e: IOException =>
-        Log.w(Tag, "Failed to open connection to " + address + ":" + port, e)
+    }.onFailure { case e =>
+      Log.w(Tag, "Failed to open connection to " + address + ":" + port, e)
     }
   }
 

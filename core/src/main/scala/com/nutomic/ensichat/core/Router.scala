@@ -66,7 +66,7 @@ final private[core] class Router(activeConnections: () => Set[Address], send: (A
 
       // True if [[s2]] is between {{{MessageHeader.SeqNumRange.size / 2}}} and
       // [[MessageHeader.SeqNumRange.size]].
-      if (s1 > ContentHeader.SeqNumRange.size / 2) {
+      else if (s1 > ContentHeader.SeqNumRange.size / 2) {
         // True if [[s2]] is between {{{s1 - MessageHeader.SeqNumRange.size / 2}}} and [[s1]].
         s1 - ContentHeader.SeqNumRange.size / 2 < s2 && s2 < s1
       } else {

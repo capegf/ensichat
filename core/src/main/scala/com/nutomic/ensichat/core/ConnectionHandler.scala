@@ -9,6 +9,7 @@ import com.nutomic.ensichat.core.internet.InternetInterface
 import com.nutomic.ensichat.core.util.{Database, FutureHelper}
 
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 
 /**
  * High-level handling of all message transfers and callbacks.
@@ -18,7 +19,8 @@ import scala.concurrent.ExecutionContext.Implicits.global
  */
 final class ConnectionHandler(settings: SettingsInterface, database: Database,
                               callbacks: CallbackInterface, crypto: Crypto,
-                              maxInternetConnections: Int) {
+                              maxInternetConnections: Int,
+                              port: Int = InternetInterface.DefaultPort) {
 
   private val Tag = "ConnectionHandler"
 
@@ -41,14 +43,15 @@ final class ConnectionHandler(settings: SettingsInterface, database: Database,
    * @param additionalInterfaces Instances of [[TransmissionInterface]] to transfer data over
    *                             platform specific interfaces (eg Bluetooth).
    */
-  def start(additionalInterfaces: Set[TransmissionInterface] = Set()): Unit = {
+  def start(additionalInterfaces: Set[TransmissionInterface] = Set()): Future[Unit] = {
     additionalInterfaces.foreach(transmissionInterfaces += _)
     FutureHelper {
       crypto.generateLocalKeys()
       Log.i(Tag, "Service started, address is " + crypto.localAddress)
       Log.i(Tag, "Local user is " + settings.get(SettingsInterface.KeyUserName, "none") +
         " with status '" + settings.get(SettingsInterface.KeyUserStatus, "") + "'")
-      transmissionInterfaces += new InternetInterface(this, crypto, settings, maxInternetConnections)
+      transmissionInterfaces +=
+        new InternetInterface(this, crypto, settings, maxInternetConnections, port)
       transmissionInterfaces.foreach(_.create())
     }
   }
@@ -73,6 +76,18 @@ final class ConnectionHandler(settings: SettingsInterface, database: Database,
       router.forwardMessage(encrypted)
       onNewMessage(msg)
     }
+  }
+
+  /**
+   * Force connect to a sepcific internet.
+   *
+   * @param address An address in the format IP;port or hostname:port.
+   */
+  def connect(address: String): Unit = {
+    transmissionInterfaces
+      .find(_.isInstanceOf[InternetInterface])
+      .map(_.asInstanceOf[InternetInterface])
+      .foreach(_.openConnection(address))
   }
 
   private def sendVia(nextHop: Address, msg: Message) =
