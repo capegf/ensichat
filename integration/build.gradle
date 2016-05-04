@@ -4,6 +4,7 @@ apply plugin: 'application'
 dependencies {
     compile 'org.scala-lang:scala-library:2.11.7'
     compile 'com.github.scala-incubator.io:scala-io-file_2.11:0.4.3'
+    compile 'ch.qos.logback:logback-classic:1.1.7'
     compile project(path: ':core')
 }
 

@@ -1,11 +1,10 @@
 package com.nutomic.ensichat.integration
 
 import java.io.File
-import java.util.concurrent.{TimeUnit, CountDownLatch}
+import java.util.concurrent.{CountDownLatch, TimeUnit}
 
 import com.nutomic.ensichat.core.Crypto
 import com.nutomic.ensichat.core.body.Text
-import com.nutomic.ensichat.core.interfaces.Log
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.Duration
