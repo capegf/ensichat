@@ -100,9 +100,10 @@ class InternetInterface(connectionHandler: ConnectionHandler, crypto: Crypto,
   private def onDisconnected(connectionThread: InternetConnectionThread): Unit = {
     addressDeviceMap.find(_._2 == connectionThread).foreach { ad =>
       logger.trace("Connection closed to " + ad._1)
+      val address = addressDeviceMap.find(_._2 == connectionThread).get._1
       connections -= connectionThread
       addressDeviceMap -= ad._1
-      connectionHandler.onConnectionClosed()
+      connectionHandler.onConnectionClosed(address)
     }
   }
 

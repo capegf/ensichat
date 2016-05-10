@@ -2,11 +2,11 @@ package com.nutomic.ensichat.core
 
 import java.util.Date
 
-import com.nutomic.ensichat.core.body.{ConnectionInfo, MessageBody, UserInfo}
-import com.nutomic.ensichat.core.header.ContentHeader
+import com.nutomic.ensichat.core.body._
+import com.nutomic.ensichat.core.header.{MessageHeader, ContentHeader}
 import com.nutomic.ensichat.core.interfaces._
 import com.nutomic.ensichat.core.internet.InternetInterface
-import com.nutomic.ensichat.core.util.{Database, FutureHelper}
+import com.nutomic.ensichat.core.util.{LocalRoutesInfo, Database, FutureHelper, RouteMessageInfo}
 import com.typesafe.scalalogging.Logger
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -27,9 +27,13 @@ final class ConnectionHandler(settings: SettingsInterface, database: Database,
 
   private var transmissionInterfaces = Set[TransmissionInterface]()
 
-  private lazy val router = new Router(connections, sendVia)
-
   private lazy val seqNumGenerator = new SeqNumGenerator(settings)
+
+  private val localRoutesInfo = new LocalRoutesInfo()
+
+  private val multicastRouteMessageInfo = new RouteMessageInfo()
+
+  private lazy val router = new Router(localRoutesInfo, connections, sendVia)
 
   /**
    * Holds all known users.
@@ -106,7 +110,11 @@ final class ConnectionHandler(settings: SettingsInterface, database: Database,
         case None => logger.info("Ignoring message with invalid signature from " + msg.header.origin)
       }
     } else {
-      router.forwardMessage(msg)
+      // Try to forward the message, or send a route error if we can't.
+      if (localRoutesInfo.getRoute(msg.header.target).isDefined)
+        router.forwardMessage(msg)
+      else
+        sendTo(msg.header.origin, new RouteError(crypto.localAddress, msg.header.target, seqNumGenerator.next()))
     }
   }
 
@@ -121,6 +129,9 @@ final class ConnectionHandler(settings: SettingsInterface, database: Database,
         database.updateContact(contact)
 
       callbacks.onConnectionsChanged()
+    case rerr: RouteError =>
+      localRoutesInfo.invalidateRoute(rerr.address)
+      connections().foreach(sendTo(_, rerr))
     case _ =>
       val origin = msg.header.origin
       if (origin != crypto.localAddress && database.getContact(origin).isEmpty)
@@ -178,7 +189,10 @@ final class ConnectionHandler(settings: SettingsInterface, database: Database,
     true
   }
 
-  def onConnectionClosed() = callbacks.onConnectionsChanged()
+  def onConnectionClosed(address: Address): Unit = {
+    localRoutesInfo.invalidateRoute(address)
+    callbacks.onConnectionsChanged()
+  }
 
   def connections(): Set[Address] = transmissionInterfaces.flatMap(_.getConnections)
 
