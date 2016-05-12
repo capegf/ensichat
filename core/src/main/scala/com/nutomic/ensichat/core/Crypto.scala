@@ -29,7 +29,7 @@ object Crypto {
   /**
    * Length of the local public/private keypair in bits.
    */
-  val PublicKeySize = 4096
+  val PublicKeySize = 512
 
   /**
    * Algorithm used for message signing.
@@ -232,20 +232,6 @@ class Crypto(settings: SettingsInterface, keyFolder: File) {
     sign(encrypt(msg, key))
   }
 
-  private[core] def verifyAndDecrypt(msg: Message, key: Option[PublicKey] = None): Option[Message] = {
-    // Catch exception to avoid crash if we receive invalid message.
-    try {
-      if (verify(msg, key))
-        Option(decrypt(msg))
-      else
-        None
-    } catch {
-      case e: InvalidKeyException =>
-        logger.warn("Failed to verify or decrypt message", e)
-        None
-    }
-  }
-
   private def encrypt(msg: Message, key: Option[PublicKey] = None): Message = {
     // Symmetric encryption of data
     val secretKey = makeSecretKey()
@@ -263,7 +249,7 @@ class Crypto(settings: SettingsInterface, keyFolder: File) {
   }
 
   @throws[InvalidKeyException]
-  private def decrypt(msg: Message): Message = {
+  def decrypt(msg: Message): Message = {
     // Asymmetric decryption of secret key
     val asymmetricCipher = Cipher.getInstance(CipherAlgorithm)
     asymmetricCipher.init(Cipher.UNWRAP_MODE, loadKey(PrivateKeyAlias, classOf[PrivateKey]))

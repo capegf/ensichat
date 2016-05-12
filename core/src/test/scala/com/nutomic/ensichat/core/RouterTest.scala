@@ -4,6 +4,7 @@ import java.util.{Date, GregorianCalendar}
 
 import com.nutomic.ensichat.core.body.{Text, UserInfo}
 import com.nutomic.ensichat.core.header.ContentHeader
+import com.nutomic.ensichat.core.util.LocalRoutesInfo
 import junit.framework.TestCase
 import org.junit.Assert._
 
@@ -18,17 +19,17 @@ class RouterTest extends TestCase {
    */
   def testFlooding(): Unit = {
     var sentTo = Set[Address]()
-    val router: Router = new Router(neighbors,
+    val router = new Router(new LocalRoutesInfo(neighbors),
       (a, m) => {
         sentTo += a
-      })
+      }, _ => ())
 
     router.forwardMessage(msg)
     assertEquals(neighbors(), sentTo)
   }
 
   def testMessageSame(): Unit = {
-    val router: Router = new Router(neighbors,
+    val router = new Router(new LocalRoutesInfo(neighbors),
       (a, m) => {
         assertEquals(msg.header.origin,       m.header.origin)
         assertEquals(msg.header.target,       m.header.target)
@@ -38,7 +39,7 @@ class RouterTest extends TestCase {
         assertEquals(msg.header.hopLimit,     m.header.hopLimit)
         assertEquals(msg.body, m.body)
         assertEquals(msg.crypto, m.crypto)
-      })
+      }, _ => ())
     router.forwardMessage(msg)
   }
 
@@ -47,7 +48,7 @@ class RouterTest extends TestCase {
    */
   def testDifferentSenders(): Unit = {
     var sentTo = Set[Address]()
-    val router: Router = new Router(neighbors, (a, m) => sentTo += a)
+    val router = new Router(new LocalRoutesInfo(neighbors), (a, m) => sentTo += a, _ => ())
 
     router.forwardMessage(msg)
     assertEquals(neighbors(), sentTo)
@@ -56,11 +57,17 @@ class RouterTest extends TestCase {
     router.forwardMessage(generateMessage(AddressTest.a2, AddressTest.a4, 1))
     assertEquals(neighbors(), sentTo)
   }
+
+  def testSeqNumComparison(): Unit = {
+    Router.compare(1, ContentHeader.SeqNumRange.last)
+    Router.compare(ContentHeader.SeqNumRange.last / 2, ContentHeader.SeqNumRange.last)
+    Router.compare(ContentHeader.SeqNumRange.last / 2, 1)
+  }
   
   def testDiscardOldIgnores(): Unit = {
     def test(first: Int, second: Int) {
       var sentTo = Set[Address]()
-      val router: Router = new Router(neighbors, (a, m) => sentTo += a)
+      val router = new Router(new LocalRoutesInfo(neighbors), (a, m) => sentTo += a, _ => ())
       router.forwardMessage(generateMessage(AddressTest.a1, AddressTest.a3, first))
       router.forwardMessage(generateMessage(AddressTest.a1, AddressTest.a3, second))
 
@@ -77,7 +84,7 @@ class RouterTest extends TestCase {
   def testHopLimit(): Unit = Range(19, 22).foreach { i =>
     val msg = new Message(
       new ContentHeader(AddressTest.a1, AddressTest.a2, 1, 1, Some(1), Some(new Date()), i), new Text(""))
-    val router: Router = new Router(neighbors, (a, m) => fail())
+    val router = new Router(new LocalRoutesInfo(neighbors), (a, m) => fail(), _ => ())
     router.forwardMessage(msg)
   }
 

@@ -12,7 +12,7 @@ import scala.concurrent.duration._
   * See AODVv2-13 4.5 (Local Route Set),              -> implemented
   *               6.9 (Local Route Set Maintenance)   -> implemented (hopefully correct)
   */
-class LocalRoutesInfo {
+class LocalRoutesInfo(activeConnections: () => Set[Address]) {
 
   private val ActiveInterval = 5.seconds
   private val MaxSeqnumLifetime = 300.seconds
@@ -45,7 +45,7 @@ class LocalRoutesInfo {
    * @param metric The number of hops towards destination using this route.
    * @param state The last known state of the route.
    */
-  case class RouteEntry(destination: Address, seqNum: Int, nextHop: Address, lastUsed: Date,
+  private case class RouteEntry(destination: Address, seqNum: Int, nextHop: Address, lastUsed: Date,
                         lastSeqNumUpdate: Date, metric: Int, state: RouteStates)
 
   private var routes = Set[RouteEntry]()
@@ -55,12 +55,15 @@ class LocalRoutesInfo {
     routes += entry
   }
 
-  def getRoute(destination: Address): Option[RouteEntry] = {
+  def getRoute(destination: Address): Option[Address] = {
+    if (activeConnections().contains(destination))
+      return Option(destination)
+
     handleTimeouts()
     val r = routes.find(_.destination == destination)
     if (r.isDefined)
       routes = routes -- r + r.get.copy(state = Active, lastUsed = new Date())
-    r
+    r.map(_.nextHop)
   }
 
   def invalidateRoute(destination: Address): Unit = {

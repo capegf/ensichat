@@ -129,7 +129,7 @@ class InternetInterface(connectionHandler: ConnectionHandler, crypto: Crypto,
    */
   override def send(nextHop: Address, msg: Message): Unit = {
     addressDeviceMap
-      .find(_._1 == nextHop)
+      .filter(_._1 == nextHop || Address.Broadcast == nextHop)
       .foreach(_._2.send(msg))
   }
 

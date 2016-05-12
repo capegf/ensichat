@@ -201,7 +201,7 @@ class BluetoothInterface(context: Context, mainHandler: Handler,
    */
   override def send(nextHop: Address, msg: Message): Unit = {
     addressDeviceMap
-      .find(_._1 == nextHop)
+      .find(_._1 == nextHop || Address.Broadcast == nextHop)
       .map(i => connections.get(i._2))
       .getOrElse(None)
       .foreach(_.send(msg))

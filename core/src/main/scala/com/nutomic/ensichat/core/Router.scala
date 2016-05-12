@@ -4,6 +4,7 @@ import java.util.Comparator
 
 import com.nutomic.ensichat.core.header.{ContentHeader, MessageHeader}
 import com.nutomic.ensichat.core.util.LocalRoutesInfo
+import com.typesafe.scalalogging.Logger
 
 object Router extends Comparator[Int] {
 
@@ -12,7 +13,6 @@ object Router extends Comparator[Int] {
    *
    * @return 1 if lhs is newer, -1 if rhs is newer, 0 if they are equal.
    */
-  // TODO: no clue if this is correct
   override def compare(lhs: Int, rhs: Int): Int = {
     if (lhs == rhs)
       0
@@ -31,8 +31,10 @@ object Router extends Comparator[Int] {
 /**
  * Forwards messages to all connected devices.
  */
-final private[core] class Router(routesInfo: LocalRoutesInfo, activeConnections: () => Set[Address],
-                                 send: (Address, Message) => Unit) {
+final private[core] class Router(routesInfo: LocalRoutesInfo, send: (Address, Message) => Unit,
+                                 noRouteFound: (Message) => Unit) {
+
+  private val logger = Logger(this.getClass)
 
   private var messageSeen = Set[(Address, Int)]()
 
@@ -51,19 +53,19 @@ final private[core] class Router(routesInfo: LocalRoutesInfo, activeConnections:
    * true.
    */
   def forwardMessage(msg: Message): Unit = {
-    val info = (msg.header.origin, msg.header.seqNum)
-    val updated = incHopCount(msg)
-    if (updated.header.hopCount >= updated.header.hopLimit)
+    if (msg.header.hopCount + 1 >= msg.header.hopLimit)
       return
 
-    val nextHop = routesInfo.getRoute(msg.header.target)
-    // TODO: what if not found?
-    activeConnections().find(_ == nextHop) match {
-      case Some(a) => send(a, updated)
-      case None => // TODO: send route error
+    routesInfo.getRoute(msg.header.target) match {
+      case Some(a) =>
+        logger.debug(s"sending $msg")
+        send(a, incHopCount(msg))
+        val info = (msg.header.origin, msg.header.seqNum)
+        markMessageSeen(info)
+      case None =>
+        s"requesting route for $msg"
+        noRouteFound(msg)
     }
-
-    markMessageSeen(info)
   }
 
   private def markMessageSeen(info: (Address, Int)): Unit = {

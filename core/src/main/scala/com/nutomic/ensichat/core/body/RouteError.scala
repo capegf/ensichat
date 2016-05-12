@@ -7,7 +7,7 @@ import com.nutomic.ensichat.core.util.BufferUtils
 
 object RouteError {
 
-  val Type = 3
+  val Type = 4
 
   /**
    * Constructs [[RouteError]] instance from byte array.

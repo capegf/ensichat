@@ -1,8 +1,9 @@
 package com.nutomic.ensichat.integration
 
 import java.io.File
-import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.{LinkedBlockingDeque, LinkedBlockingQueue}
 
+import com.nutomic.ensichat.core.body.{RouteError, RouteRequest, RouteReply}
 import com.nutomic.ensichat.core.interfaces.{CallbackInterface, SettingsInterface}
 import com.nutomic.ensichat.core.util.Database
 import com.nutomic.ensichat.core.{ConnectionHandler, Crypto, Message}
@@ -43,6 +44,7 @@ object LocalNode {
   */
 class LocalNode(val index: Int, configFolder: File) extends CallbackInterface {
 
+  import com.nutomic.ensichat.integration.LocalNode.EventType._
   private val databaseFile = new File(configFolder, "database")
   private val keyFolder    = new File(configFolder, "keys")
 
@@ -66,7 +68,6 @@ class LocalNode(val index: Int, configFolder: File) extends CallbackInterface {
 
   def stop(): Unit = {
     connectionHandler.stop()
-    eventQueue.close()
     Path(configFolder).deleteRecursively()
   }
 
