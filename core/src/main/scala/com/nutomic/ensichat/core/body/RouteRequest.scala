@@ -16,14 +16,15 @@ object RouteRequest {
     val b = ByteBuffer.wrap(array)
     val requested  = new Address(BufferUtils.getByteArray(b, Address.Length))
     val origSeqNum = BufferUtils.getUnsignedShort(b)
-    val targSeqNum = BufferUtils.getUnsignedShort(b)
     val originMetric = BufferUtils.getUnsignedShort(b)
+    val targSeqNum = b.getInt()
     new RouteRequest(requested, origSeqNum, targSeqNum, originMetric)
   }
 
 }
 
-case class RouteRequest(requested: Address, origSeqNum: Int, targSeqNum: Int, originMetric: Int) extends MessageBody {
+case class RouteRequest(requested: Address, origSeqNum: Int, targSeqNum: Int, originMetric: Int)
+  extends MessageBody {
 
   override def protocolType = RouteRequest.Type
 
@@ -33,11 +34,11 @@ case class RouteRequest(requested: Address, origSeqNum: Int, targSeqNum: Int, or
     val b = ByteBuffer.allocate(length)
     b.put(requested.bytes)
     BufferUtils.putUnsignedShort(b, origSeqNum)
-    BufferUtils.putUnsignedShort(b, targSeqNum)
     BufferUtils.putUnsignedShort(b, originMetric)
+    b.putInt(targSeqNum)
     b.array()
   }
 
-  override def length = 6 + Address.Length
+  override def length = 8 + Address.Length
 
 }

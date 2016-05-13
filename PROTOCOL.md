@@ -26,6 +26,9 @@ Nodes MUST NOT have a public key with the broadcast address or null
 address as hash. Additionally, nodes MUST NOT connect to a node with
 either address.
 
+All integer fields are in network byte order, and unsigned (unless 
+specified otherwise).
+
 
 Crypto
 ------
@@ -84,9 +87,7 @@ AES key is wrapped with the recipient's public RSA key.
 ### Header
 
 Every message starts with one 74 byte header indicating the message
-version, type and ID, followed by the length of the message. The
-header is in network byte order, i.e. big endian. The header may have
-6 bytes of additional data.
+version, type and ID, followed by the length of the message.
 
      0                   1                   2                   3
      0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -231,28 +232,28 @@ Sent to request a route to a specific Target Address.
     |                      Address (32 bytes)                       |
     |                                                               |
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |           OrigSeqNum          |          TargSeqNum           |
+    |           OrigSeqNum          |         OriginMetric          |
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |         OriginMetric          |
-    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                          TargMetric                           |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 Equivalent to the Sequence Number in the message header.
+
+Set OrigMetric = RouterClient.Cost for the Router Client entry
+which includes OrigAddr.
 
 If an Invalid route exists in the Local Route Set matching
 TargAddr using longest prefix matching and has a valid
 sequence number, set TargSeqNum = LocalRoute.SeqNum.
-Otherwise, set TargSeqNum = 0.
-
-Set OrigMetric = RouterClient.Cost for the Router Client entry
-which includes OrigAddr.
+Otherwise, set TargSeqNum = -1. This field is signed.
 
 ### Route Reply (Protocol-Type = 3)
 
 Sent as a reply when a Route Request arrives, to inform other nodes
 about a route.
 
-     0                   1
-     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6
+     0                   1                   2                   3
+     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     |           TargSeqNum          |          TargMetric           |
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -276,8 +277,8 @@ address MUST be set to the broadcast address.
     |                      Address (32 bytes)                       |
     |                                                               |
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |            SeqNum             |
-    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                           SeqNum                              |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 Packet Source is the source address of the message triggering this
 Route Error. If the route error is not triggered by a message,
@@ -286,7 +287,7 @@ this MUST be set to the null address.
 Address is the address that is no longer reachable.
 
 SeqNum is the sequence number of the route that is no longer available
-(if known).
+(if known). Otherwise, set TargSeqNum = -1. This field is signed.
 
 Content Messages
 ----------------

@@ -170,11 +170,10 @@ class BluetoothInterface(context: Context, mainHandler: Handler,
    * Removes device from active connections.
    */
   def onConnectionClosed(device: Device, socket: BluetoothSocket): Unit = {
-    val address = addressDeviceMap.find(_._1 == device.id).get._1
     devices -= device.id
     connections -= device.id
     addressDeviceMap = addressDeviceMap.filterNot(_._2 == device.id)
-    connectionHandler.onConnectionClosed(address)
+    connectionHandler.onConnectionClosed(getAddressForDevice(device.id))
   }
 
   /**
@@ -193,8 +192,11 @@ class BluetoothInterface(context: Context, mainHandler: Handler,
       if (!connectionHandler.onConnectionOpened(msg))
         addressDeviceMap -= address
     case _ =>
-      connectionHandler.onMessageReceived(msg)
+      connectionHandler.onMessageReceived(msg, getAddressForDevice(device))
   }
+
+  private def getAddressForDevice(device: Device.ID) =
+    addressDeviceMap.find(_._2 == device).get._1
 
   /**
    * Sends the message to nextHop.
@@ -211,11 +213,6 @@ class BluetoothInterface(context: Context, mainHandler: Handler,
    * Returns all active Bluetooth connections.
    */
   override def getConnections: Set[Address] =
-    connections.flatMap { x =>
-        addressDeviceMap
-          .find(_._2 == x._1)
-          .map(_._1)
-      }
-      .toSet
+    connections.map( c => getAddressForDevice(c._1)).toSet
 
 }

@@ -5,23 +5,15 @@ import java.util.Date
 import com.nutomic.ensichat.core.Address
 
 import scala.concurrent.duration._
+import com.nutomic.ensichat.core.util.LocalRoutesInfo._
 
-/**
-  * This class contains information about routes available to this node.
-  *
-  * See AODVv2-13 4.5 (Local Route Set),              -> implemented
-  *               6.9 (Local Route Set Maintenance)   -> implemented (hopefully correct)
-  */
-class LocalRoutesInfo(activeConnections: () => Set[Address]) {
+object LocalRoutesInfo {
 
   private val ActiveInterval = 5.seconds
-  private val MaxSeqnumLifetime = 300.seconds
-  // TODO: this can probably be much higher because of infrequent topology changes between internet nodes
-  private val MaxIdleTime = 300.seconds
 
   /**
     * [[RouteStates.Idle]]:
-    *     A route that is known, but has not been used in the last [[ActiveInterval]].
+    *     A route that is known, but has not been used in the last [[ActiveInterval.
     * [[RouteStates.Active]]:
     *     A route that is known, and has been used in the last [[ActiveInterval]].
     * [[RouteStates.Invalid]]:
@@ -32,7 +24,23 @@ class LocalRoutesInfo(activeConnections: () => Set[Address]) {
     type RouteStates = Value
     val Idle, Active, Invalid = Value
   }
+
+}
+
+/**
+  * This class contains information about routes available to this node.
+  *
+  * See AODVv2-13 4.5 (Local Route Set),              -> implemented
+  *               6.9 (Local Route Set Maintenance)   -> implemented (hopefully correct)
+  */
+class LocalRoutesInfo(activeConnections: () => Set[Address]) {
+
   import RouteStates._
+
+  private val MaxSeqnumLifetime = 300.seconds
+  // TODO: this can probably be much higher because of infrequent topology changes between internet nodes
+  private val MaxIdleTime = 300.seconds
+
 
   /**
    *  Holds information about a local route.
@@ -45,7 +53,7 @@ class LocalRoutesInfo(activeConnections: () => Set[Address]) {
    * @param metric The number of hops towards destination using this route.
    * @param state The last known state of the route.
    */
-  private case class RouteEntry(destination: Address, seqNum: Int, nextHop: Address, lastUsed: Date,
+  case class RouteEntry(destination: Address, seqNum: Int, nextHop: Address, lastUsed: Date,
                         lastSeqNumUpdate: Date, metric: Int, state: RouteStates)
 
   private var routes = Set[RouteEntry]()
@@ -55,25 +63,34 @@ class LocalRoutesInfo(activeConnections: () => Set[Address]) {
     routes += entry
   }
 
-  def getRoute(destination: Address): Option[Address] = {
+  def getRoute(destination: Address): Option[RouteEntry] = {
     if (activeConnections().contains(destination))
-      return Option(destination)
+      return Option(new RouteEntry(destination, 0, destination, new Date(), new Date(), 1, Idle))
 
     handleTimeouts()
     val r = routes.find(_.destination == destination)
     if (r.isDefined)
       routes = routes -- r + r.get.copy(state = Active, lastUsed = new Date())
-    r.map(_.nextHop)
+    r
   }
 
-  def invalidateRoute(destination: Address): Unit = {
+  /**
+    *
+    * @param neighbor The address of a neighbor which has disconnected.
+    * @return The set of active destinations that can't be reached anymore.
+    */
+  def connectionClosed(neighbor: Address): Set[Address] = {
     handleTimeouts()
     routes = routes.map { r =>
-      if (r.destination == destination || r.nextHop == destination)
+      if (r.nextHop == neighbor)
         r.copy(state = Invalid)
       else
         r
     }
+
+    routes
+      .filter(r => r.state == Active && r.nextHop == neighbor)
+      .map(_.destination)
   }
 
   private def handleTimeouts(): Unit = {

@@ -16,7 +16,7 @@ object RouteError {
     val b = ByteBuffer.wrap(array)
     val packetSource = new Address(BufferUtils.getByteArray(b, Address.Length))
     val address = new Address(BufferUtils.getByteArray(b, Address.Length))
-    val seqNum = BufferUtils.getUnsignedShort(b)
+    val seqNum = b.getInt
     new RouteError(packetSource, address, seqNum)
   }
 
@@ -32,10 +32,10 @@ case class RouteError(packetSource: Address, address: Address, seqNum: Int) exte
     val b = ByteBuffer.allocate(length)
     b.put(packetSource.bytes)
     b.put(address.bytes)
-    BufferUtils.putUnsignedShort(b, seqNum)
+    b.putInt(seqNum)
     b.array()
   }
 
-  override def length = Address.Length * 2 + 2
+  override def length = Address.Length * 2 + 4
 
 }

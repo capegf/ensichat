@@ -98,12 +98,11 @@ class InternetInterface(connectionHandler: ConnectionHandler, crypto: Crypto,
   }
 
   private def onDisconnected(connectionThread: InternetConnectionThread): Unit = {
-    addressDeviceMap.find(_._2 == connectionThread).foreach { ad =>
-      logger.trace("Connection closed to " + ad._1)
-      val address = addressDeviceMap.find(_._2 == connectionThread).get._1
+    getAddressForThread(connectionThread).foreach { ad =>
+      logger.trace("Connection closed to " + ad)
       connections -= connectionThread
-      addressDeviceMap -= ad._1
-      connectionHandler.onConnectionClosed(address)
+      addressDeviceMap -= ad
+      connectionHandler.onConnectionClosed(ad)
     }
   }
 
@@ -121,8 +120,11 @@ class InternetInterface(connectionHandler: ConnectionHandler, crypto: Crypto,
       if (!connectionHandler.onConnectionOpened(msg))
         addressDeviceMap -= address
     case _ =>
-      connectionHandler.onMessageReceived(msg)
+      connectionHandler.onMessageReceived(msg, getAddressForThread(thread).get)
   }
+
+  private def getAddressForThread(thread: InternetConnectionThread) =
+    addressDeviceMap.find(_._2 == thread).map(_._1)
 
   /**
    * Sends the message to nextHop.

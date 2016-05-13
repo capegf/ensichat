@@ -43,7 +43,7 @@ class RouteMessageInfo {
                                        new Date())
     case rrep: RouteReply =>
       entries += new RouteMessageEntry(RouteReply.Type, msg.header.origin, msg.header.target,
-        msg.header.seqNum, rrep.targSeqNum, rrep.targMetric, new Date())
+        msg.header.seqNum, rrep.originSeqNum, rrep.originMetric, new Date())
   }
 
   def isMessageRedundant(msg: Message): Boolean = {
@@ -55,7 +55,7 @@ class RouteMessageInfo {
 
         val (metric, seqNumComparison) = msg.body match {
           case rreq: RouteRequest => (rreq.originMetric, Router.compare(rreq.origSeqNum, e.origSeqNum))
-          case rrep: RouteReply => (rrep.targMetric, Router.compare(rrep.targSeqNum, e.targSeqNum))
+          case rrep: RouteReply => (rrep.originMetric, Router.compare(rrep.originSeqNum, e.targSeqNum))
         }
         // "If the entry has a metric value that is better than the metric in the received message,
         // the message is not redundant" (6,8, p 31)

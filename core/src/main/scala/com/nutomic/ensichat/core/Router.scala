@@ -52,18 +52,22 @@ final private[core] class Router(routesInfo: LocalRoutesInfo, send: (Address, Me
    * Sends message to all connected devices. Should only be called if [[isMessageSeen()]] returns
    * true.
    */
-  def forwardMessage(msg: Message): Unit = {
+  def forwardMessage(msg: Message, nextHopOption: Option[Address] = None): Unit = {
     if (msg.header.hopCount + 1 >= msg.header.hopLimit)
       return
 
-    routesInfo.getRoute(msg.header.target) match {
+    val nextHop = nextHopOption.getOrElse(msg.header.target)
+
+    if (nextHop == Address.Broadcast) {
+      send(nextHop, msg)
+      return
+    }
+
+    routesInfo.getRoute(msg.header.target).map(_.nextHop) match {
       case Some(a) =>
-        logger.debug(s"sending $msg")
         send(a, incHopCount(msg))
-        val info = (msg.header.origin, msg.header.seqNum)
-        markMessageSeen(info)
+        markMessageSeen((msg.header.origin, msg.header.seqNum))
       case None =>
-        s"requesting route for $msg"
         noRouteFound(msg)
     }
   }

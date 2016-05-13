@@ -4,14 +4,15 @@ import java.security.InvalidKeyException
 import java.util.Date
 
 import com.nutomic.ensichat.core.body._
-import com.nutomic.ensichat.core.header.{MessageHeader, ContentHeader}
+import com.nutomic.ensichat.core.header.{ContentHeader, MessageHeader}
 import com.nutomic.ensichat.core.interfaces._
 import com.nutomic.ensichat.core.internet.InternetInterface
-import com.nutomic.ensichat.core.util.{LocalRoutesInfo, Database, FutureHelper, RouteMessageInfo}
+import com.nutomic.ensichat.core.util.{Database, FutureHelper, LocalRoutesInfo, RouteMessageInfo}
 import com.typesafe.scalalogging.Logger
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
+import scala.concurrent.duration._
 
 /**
  * High-level handling of all message transfers and callbacks.
@@ -26,6 +27,8 @@ final class ConnectionHandler(settings: SettingsInterface, database: Database,
 
   private val logger = Logger(this.getClass)
 
+  private val MissingRouteMessageTimeout = 5.minutes
+
   private var transmissionInterfaces = Set[TransmissionInterface]()
 
   private lazy val seqNumGenerator = new SeqNumGenerator(settings)
@@ -34,9 +37,17 @@ final class ConnectionHandler(settings: SettingsInterface, database: Database,
 
   private val routeMessageInfo = new RouteMessageInfo()
 
-  private lazy val router = new Router(localRoutesInfo, sendVia, noRouteFound)
+  private lazy val router = new Router(localRoutesInfo,
+                                       (a, m) => transmissionInterfaces.foreach(_.send(a, m)),
+                                       noRouteFound)
 
-  private var missingRouteMessages = Set[Message]()
+  /**
+    * Contains messages that couldn't be forwarded because we don't know a route.
+    *
+    * These will be buffered until we receive a [[RouteReply]] for the target, or when until the
+    * message has couldn't be forwarded after [[MissingRouteMessageTimeout]].
+    */
+  private var missingRouteMessages = Set[(Message, Date)]()
 
   /**
    * Holds all known users.
@@ -90,28 +101,31 @@ final class ConnectionHandler(settings: SettingsInterface, database: Database,
   private def requestRoute(target: Address): Unit = {
     assert(localRoutesInfo.getRoute(target).isEmpty)
     val seqNum = seqNumGenerator.next()
-    // TODO: what params for targSeqNum, originMetric???
-    // TODO: when forwarding, keep header.origin, also keep orig* params?
-    val body = new RouteRequest(target, seqNum, 0, 0)
+    val targetSeqNum = localRoutesInfo.getRoute(target).map(_.seqNum).getOrElse(-1)
+    val body = new RouteRequest(target, seqNum, targetSeqNum, 0)
     val header = new MessageHeader(body.protocolType, crypto.localAddress, Address.Broadcast, seqNum)
 
-    val msg = new Message(header, body)
-    // TODO: we can probably check this before constructing the message
-    if (routeMessageInfo.isMessageRedundant(msg))
-      return
-
-    val signed = crypto.sign(msg)
-    connections().foreach(sendVia(_, signed))
+    val signed = crypto.sign(new Message(header, body))
+    router.forwardMessage(signed)
   }
 
   def replyRoute(target: Address, replyTo: Address): Unit = {
-    // TODO: params?
-    val body = new RouteReply(target, 0, 0)
-    val header = new MessageHeader(body.protocolType, crypto.localAddress, replyTo, seqNumGenerator.next())
+    val seqNum = seqNumGenerator.next()
+    val body = new RouteReply(seqNum, 0)
+    val header = new MessageHeader(body.protocolType, crypto.localAddress, replyTo, seqNum)
 
     val msg = new Message(header, body)
-    val signed = crypto.sign(msg)
-    connections().foreach(sendVia(_, signed))
+    router.forwardMessage(crypto.sign(msg))
+  }
+
+  def routeError(address: Address, packetSource: Option[Address]): Unit =  {
+    // TODO avoid duplicate messages, respect aodv control message limit
+    val destination = packetSource.getOrElse(Address.Broadcast)
+    val header = new MessageHeader(RouteError.Type, crypto.localAddress, destination,
+                                   seqNumGenerator.next())
+    val seqNum = localRoutesInfo.getRoute(address).map(_.seqNum).getOrElse(-1)
+    val body = new RouteError(packetSource.getOrElse(Address.Null), address, seqNum)
+    router.forwardMessage(crypto.sign(new Message(header, body)))
   }
 
   /**
@@ -126,14 +140,10 @@ final class ConnectionHandler(settings: SettingsInterface, database: Database,
       .foreach(_.openConnection(address))
   }
 
-  private def sendVia(nextHop: Address, msg: Message) = {
-    transmissionInterfaces.foreach(_.send(nextHop, msg))
-  }
-
   /**
    * Decrypts and verifies incoming messages, forwards valid ones to [[onNewMessage()]].
    */
-  def onMessageReceived(msg: Message): Unit = {
+  def onMessageReceived(msg: Message, previousHop: Address): Unit = {
     if (router.isMessageSeen(msg)) {
       logger.trace("Ignoring message from " + msg.header.origin + " that we already received")
       return
@@ -141,33 +151,47 @@ final class ConnectionHandler(settings: SettingsInterface, database: Database,
 
     msg.body match {
       case rreq: RouteRequest =>
-        logger.debug(s"rreq: $msg")
-        if (localRoutesInfo.getRoute(rreq.requested).isDefined)
+        localRoutesInfo.addRoute(msg.header.origin, rreq.origSeqNum, previousHop, rreq.originMetric)
+        if (routeMessageInfo.isMessageRedundant(msg))
+          return
+
+        if (crypto.localAddress == rreq.requested)
           replyRoute(rreq.requested, msg.header.origin)
-        else
-          requestRoute(rreq.requested)
-        onNewMessage(msg)
+        else {
+          val body = rreq.copy(originMetric = rreq.originMetric + 1)
+
+          val newMsg = new Message(msg.header, body)
+          localRoutesInfo.getRoute(rreq.requested) match {
+            case Some(route) => router.forwardMessage(newMsg, Option(route.nextHop))
+            case None => router.forwardMessage(newMsg, Option(Address.Broadcast))
+          }
+        }
         return
       case rrep: RouteReply =>
-        logger.debug(s"rrep: $msg")
-        // TODO: forward this to node that requested it (checking RouteMessageInfo)
-        //       -> probably the reason there are way too many rreps
-        // TODO: how to handle metric?
-        localRoutesInfo.addRoute(rrep.targAddress, rrep.targSeqNum, msg.header.origin, 0)
-        connections().foreach(replyRoute(rrep.targAddress, _))
-        // resend messages that required this
-        if (missingRouteMessages.nonEmpty) {
-          logger.debug(s"missingRouteMessages=$missingRouteMessages")
-          val m = missingRouteMessages.filter(_.header.target == rrep.targAddress)
-          logger.info(s"Now sending messages $m")
-          m.foreach(router.forwardMessage)
-          missingRouteMessages --= m
+        localRoutesInfo.addRoute(msg.header.origin, rrep.originSeqNum, previousHop, 0)
+        if (routeMessageInfo.isMessageRedundant(msg))
+          return
+
+        if (msg.header.target == crypto.localAddress)
+          return
+
+        val existingRoute = localRoutesInfo.getRoute(msg.header.target)
+        val states = Set(LocalRoutesInfo.RouteStates.Active, LocalRoutesInfo.RouteStates.Idle)
+        if (existingRoute.isEmpty || !states.contains(existingRoute.get.state)) {
+          routeError(msg.header.target, Option(msg.header.origin))
+          return
         }
-        onNewMessage(msg)
+
+        val body = rrep.copy(originMetric = rrep.originMetric + 1)
+
+        val msg2 = new Message(msg.header, body)
+        router.forwardMessage(msg2)
+
+        resendMissingRouteMessages()
         return
       case rerr: RouteError =>
-        localRoutesInfo.invalidateRoute(rerr.address)
-        connections().foreach(sendTo(_, rerr))
+        // TODO: 7.4.2 RERR Reception
+        // TODO: 7.4.3 RERR Regeneration
       case _ =>
     }
 
@@ -197,10 +221,32 @@ final class ConnectionHandler(settings: SettingsInterface, database: Database,
     onNewMessage(plainMsg)
   }
 
+  /**
+    * Tries to send messages in [[missingRouteMessages]] again, after we acquired a new route.
+    *
+    * Before checking [[missingRouteMessages]], those older than [[MissingRouteMessageTimeout]]
+    * are removed.
+    */
+  private def resendMissingRouteMessages(): Unit = {
+    // resend messages if possible
+    val date = new Date()
+    missingRouteMessages = missingRouteMessages.filter { e =>
+      val removeTime = new Date(e._2.getTime + MissingRouteMessageTimeout.toMillis)
+      removeTime.after(date)
+    }
+
+    val m = missingRouteMessages.filter(m => localRoutesInfo.getRoute(m._1.header.target).isDefined)
+    m.foreach( m => router.forwardMessage(m._1))
+    missingRouteMessages --= m
+  }
+
   private def noRouteFound(message: Message): Unit = {
     logger.debug(s"no route found on node ${crypto.localAddress.toString.split("-").head}")
-    missingRouteMessages += message
-    requestRoute(message.header.target)
+    if (message.header.origin == crypto.localAddress) {
+      missingRouteMessages += ((message, new Date()))
+      requestRoute(message.header.target)
+    } else
+      routeError(message.header.target, Option(message.header.origin))
   }
 
   /**
@@ -272,7 +318,8 @@ final class ConnectionHandler(settings: SettingsInterface, database: Database,
   }
 
   def onConnectionClosed(address: Address): Unit = {
-    localRoutesInfo.invalidateRoute(address)
+    localRoutesInfo.connectionClosed(address)
+      .foreach(routeError(_, None))
     callbacks.onConnectionsChanged()
   }
 
