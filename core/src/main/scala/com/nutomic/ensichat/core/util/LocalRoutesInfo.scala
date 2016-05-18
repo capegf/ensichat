@@ -1,11 +1,10 @@
 package com.nutomic.ensichat.core.util
 
-import java.util.Date
-
 import com.nutomic.ensichat.core.Address
 
-import scala.concurrent.duration._
 import com.nutomic.ensichat.core.util.LocalRoutesInfo._
+import com.github.nscala_time.time.Imports._
+import com.typesafe.scalalogging.Logger
 
 object LocalRoutesInfo {
 
@@ -36,6 +35,7 @@ object LocalRoutesInfo {
 class LocalRoutesInfo(activeConnections: () => Set[Address]) {
 
   import RouteStates._
+  private val logger = Logger(this.getClass)
 
   private val MaxSeqnumLifetime = 300.seconds
   // TODO: this can probably be much higher because of infrequent topology changes between internet nodes
@@ -53,24 +53,27 @@ class LocalRoutesInfo(activeConnections: () => Set[Address]) {
    * @param metric The number of hops towards destination using this route.
    * @param state The last known state of the route.
    */
-  case class RouteEntry(destination: Address, seqNum: Int, nextHop: Address, lastUsed: Date,
-                        lastSeqNumUpdate: Date, metric: Int, state: RouteStates)
+  case class RouteEntry(destination: Address, seqNum: Int, nextHop: Address, lastUsed: DateTime,
+                        lastSeqNumUpdate: DateTime, metric: Int, state: RouteStates)
 
   private var routes = Set[RouteEntry]()
 
   def addRoute(destination: Address, seqNum: Int, nextHop: Address, metric: Int): Unit = {
-    val entry = RouteEntry(destination, seqNum, nextHop, new Date(0), new Date(), metric, Idle)
+    val entry = RouteEntry(destination, seqNum, nextHop, new DateTime(0), DateTime.now, metric, Idle)
     routes += entry
   }
 
   def getRoute(destination: Address): Option[RouteEntry] = {
     if (activeConnections().contains(destination))
-      return Option(new RouteEntry(destination, 0, destination, new Date(), new Date(), 1, Idle))
+      return Option(new RouteEntry(destination, 0, destination, DateTime.now, DateTime.now, 1, Idle))
 
     handleTimeouts()
-    val r = routes.find(_.destination == destination)
+    val r = routes.toList
+      .sortWith(_.metric < _.metric)
+      .find( r => r.destination == destination && r.state != Invalid)
+
     if (r.isDefined)
-      routes = routes -- r + r.get.copy(state = Active, lastUsed = new Date())
+      routes = routes -- r + r.get.copy(state = Active, lastUsed = DateTime.now)
     r
   }
 
@@ -81,6 +84,12 @@ class LocalRoutesInfo(activeConnections: () => Set[Address]) {
     */
   def connectionClosed(neighbor: Address): Set[Address] = {
     handleTimeouts()
+
+    val affectedDestinations =
+      routes
+        .filter(r => r.state == Active && r.nextHop == neighbor)
+        .map(_.destination)
+
     routes = routes.map { r =>
       if (r.nextHop == neighbor)
         r.copy(state = Invalid)
@@ -88,23 +97,21 @@ class LocalRoutesInfo(activeConnections: () => Set[Address]) {
         r
     }
 
-    routes
-      .filter(r => r.state == Active && r.nextHop == neighbor)
-      .map(_.destination)
+    affectedDestinations
   }
 
   private def handleTimeouts(): Unit = {
     routes = routes
       // Delete routes after max lifetime.
       .map { r =>
-        if (r.lastSeqNumUpdate.getTime + MaxSeqnumLifetime.toMillis > new Date().getTime)
+        if (DateTime.now.isAfter(r.lastSeqNumUpdate + MaxSeqnumLifetime))
           r.copy(seqNum = 0)
         else
           r
       }
       // Set routes to invalid after max idle time.
       .map { r =>
-        if (r.lastSeqNumUpdate.getTime + MaxIdleTime.toMillis < new Date().getTime)
+        if (DateTime.now.isAfter(r.lastSeqNumUpdate + MaxIdleTime))
           r.copy(state = Invalid)
         else
           r

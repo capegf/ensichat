@@ -1,5 +1,6 @@
 package com.nutomic.ensichat.core
 
+import java.util.concurrent.{TimeUnit, CountDownLatch}
 import java.util.{Date, GregorianCalendar}
 
 import com.nutomic.ensichat.core.body.{Text, UserInfo}
@@ -10,14 +11,22 @@ import org.junit.Assert._
 
 class RouterTest extends TestCase {
 
-  private def neighbors() = Set[Address](AddressTest.a1, AddressTest.a2, AddressTest.a3)
+  private def neighbors() = Set[Address](AddressTest.a1, AddressTest.a2, AddressTest.a4)
 
-  private val msg = generateMessage(AddressTest.a1, AddressTest.a4, 1)
+  def testNoRouteFound(): Unit = {
+    val msg = generateMessage(AddressTest.a2, AddressTest.a3, 1)
+    val latch = new CountDownLatch(1)
+    val router = new Router(new LocalRoutesInfo(neighbors),
+      (_, _) => fail("Message shouldn't be forwarded"), m => {
+        assertEquals(msg, m)
+        latch.countDown()
+      })
+    router.forwardMessage(msg)
+    assertTrue(latch.await(1, TimeUnit.SECONDS))
+  }
 
-  /**
-   * Messages should be sent to all neighbors.
-   */
-  def testFlooding(): Unit = {
+  def testNextHop(): Unit = {
+    val msg = generateMessage(AddressTest.a1, AddressTest.a4, 1)
     var sentTo = Set[Address]()
     val router = new Router(new LocalRoutesInfo(neighbors),
       (a, m) => {
@@ -25,10 +34,11 @@ class RouterTest extends TestCase {
       }, _ => ())
 
     router.forwardMessage(msg)
-    assertEquals(neighbors(), sentTo)
+    assertEquals(Set(AddressTest.a4), sentTo)
   }
 
   def testMessageSame(): Unit = {
+    val msg = generateMessage(AddressTest.a1, AddressTest.a4, 1)
     val router = new Router(new LocalRoutesInfo(neighbors),
       (a, m) => {
         assertEquals(msg.header.origin,       m.header.origin)
@@ -50,12 +60,12 @@ class RouterTest extends TestCase {
     var sentTo = Set[Address]()
     val router = new Router(new LocalRoutesInfo(neighbors), (a, m) => sentTo += a, _ => ())
 
-    router.forwardMessage(msg)
-    assertEquals(neighbors(), sentTo)
+    router.forwardMessage(generateMessage(AddressTest.a1, AddressTest.a4, 1))
+    assertEquals(Set(AddressTest.a4), sentTo)
 
     sentTo = Set[Address]()
     router.forwardMessage(generateMessage(AddressTest.a2, AddressTest.a4, 1))
-    assertEquals(neighbors(), sentTo)
+    assertEquals(Set(AddressTest.a4), sentTo)
   }
 
   def testSeqNumComparison(): Unit = {
@@ -68,12 +78,12 @@ class RouterTest extends TestCase {
     def test(first: Int, second: Int) {
       var sentTo = Set[Address]()
       val router = new Router(new LocalRoutesInfo(neighbors), (a, m) => sentTo += a, _ => ())
-      router.forwardMessage(generateMessage(AddressTest.a1, AddressTest.a3, first))
-      router.forwardMessage(generateMessage(AddressTest.a1, AddressTest.a3, second))
+      router.forwardMessage(generateMessage(AddressTest.a1, AddressTest.a4, first))
+      router.forwardMessage(generateMessage(AddressTest.a1, AddressTest.a4, second))
 
       sentTo = Set[Address]()
-      router.forwardMessage(generateMessage(AddressTest.a1, AddressTest.a3, first))
-      assertEquals(neighbors(), sentTo)
+      router.forwardMessage(generateMessage(AddressTest.a1, AddressTest.a4, first))
+      assertEquals(Set(AddressTest.a4), sentTo)
     }
 
     test(1, ContentHeader.SeqNumRange.last)

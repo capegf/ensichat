@@ -5,7 +5,7 @@ import java.util.Date
 import com.nutomic.ensichat.core.body.{RouteRequest, RouteReply}
 import com.nutomic.ensichat.core.{Router, Address, Message}
 
-import scala.concurrent.duration._
+import com.github.nscala_time.time.Imports._
 
 /**
   * Contains information about AODVv2 control messages that have been received.
@@ -32,7 +32,7 @@ class RouteMessageInfo {
     */
   case class RouteMessageEntry(messageType: Int, origAddress: Address,
                                targAddress: Address, origSeqNum: Int, targSeqNum: Int,
-                               metric: Int, timestamp: Date)
+                               metric: Int, timestamp: DateTime)
 
   private var entries = Set[RouteMessageEntry]()
 
@@ -40,10 +40,10 @@ class RouteMessageInfo {
     case rreq: RouteRequest =>
       entries += new RouteMessageEntry(RouteRequest.Type, msg.header.origin, msg.header.target,
                                        msg.header.seqNum, rreq.targSeqNum, rreq.originMetric,
-                                       new Date())
+                                       DateTime.now)
     case rrep: RouteReply =>
       entries += new RouteMessageEntry(RouteReply.Type, msg.header.origin, msg.header.target,
-        msg.header.seqNum, rrep.originSeqNum, rrep.originMetric, new Date())
+        msg.header.seqNum, rrep.originSeqNum, rrep.originMetric, DateTime.now)
   }
 
   def isMessageRedundant(msg: Message): Boolean = {
@@ -72,10 +72,8 @@ class RouteMessageInfo {
   }
 
   private def handleTimeouts(): Unit = {
-    val date = new Date()
     entries = entries.filter { e =>
-      val removeTime = new Date(e.timestamp.getTime + MaxSeqnumLifetime.toMillis)
-      removeTime.after(date)
+      DateTime.now.isBefore(e.timestamp + MaxSeqnumLifetime)
     }
   }
 }
