@@ -1,6 +1,6 @@
 package com.nutomic.ensichat.core
 
-import java.util.concurrent.{TimeUnit, CountDownLatch}
+import java.util.concurrent.{CountDownLatch, TimeUnit}
 import java.util.{Date, GregorianCalendar}
 
 import com.nutomic.ensichat.core.body.{Text, UserInfo}

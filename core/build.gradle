@@ -5,7 +5,7 @@ dependencies {
     compile 'com.h2database:h2:1.4.191'
     compile 'com.typesafe.slick:slick_2.11:3.1.1'
     compile 'com.typesafe.scala-logging:scala-logging_2.11:3.4.0'
-    compile 'com.github.nscala-time:nscala-time_2.12.0-M4:2.12.0'
+    compile 'org.unitils.jodatime:unitils-jodatime:1.0.3'
     testCompile 'junit:junit:4.12'
 }
 

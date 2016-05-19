@@ -151,7 +151,7 @@ final class ConnectionHandler(settings: SettingsInterface, database: Database,
 
     msg.body match {
       case rreq: RouteRequest =>
-        localRoutesInfo.addRoute(msg.header.origin, rreq.origSeqNum, previousHop, rreq.originMetric)
+        localRoutesInfo.addRoute(msg.header.origin, rreq.originSeqNum, previousHop, rreq.originMetric)
         if (routeMessageInfo.isMessageRedundant(msg))
           return
 

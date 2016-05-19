@@ -1,14 +1,13 @@
 package com.nutomic.ensichat.core.util
 
 import com.nutomic.ensichat.core.Address
-
 import com.nutomic.ensichat.core.util.LocalRoutesInfo._
-import com.github.nscala_time.time.Imports._
 import com.typesafe.scalalogging.Logger
+import org.joda.time.{DateTime, Duration}
 
 object LocalRoutesInfo {
 
-  private val ActiveInterval = 5.seconds
+  private val ActiveInterval = Duration.standardSeconds(5)
 
   /**
     * [[RouteStates.Idle]]:
@@ -37,9 +36,9 @@ class LocalRoutesInfo(activeConnections: () => Set[Address]) {
   import RouteStates._
   private val logger = Logger(this.getClass)
 
-  private val MaxSeqnumLifetime = 300.seconds
+  private val MaxSeqnumLifetime = Duration.standardSeconds(300)
   // TODO: this can probably be much higher because of infrequent topology changes between internet nodes
-  private val MaxIdleTime = 300.seconds
+  private val MaxIdleTime = Duration.standardSeconds(300)
 
 
   /**
@@ -104,14 +103,14 @@ class LocalRoutesInfo(activeConnections: () => Set[Address]) {
     routes = routes
       // Delete routes after max lifetime.
       .map { r =>
-        if (DateTime.now.isAfter(r.lastSeqNumUpdate + MaxSeqnumLifetime))
+        if (DateTime.now.isAfter(r.lastSeqNumUpdate.plus(MaxSeqnumLifetime)))
           r.copy(seqNum = 0)
         else
           r
       }
       // Set routes to invalid after max idle time.
       .map { r =>
-        if (DateTime.now.isAfter(r.lastSeqNumUpdate + MaxIdleTime))
+        if (DateTime.now.isAfter(r.lastSeqNumUpdate.plus(MaxIdleTime)))
           r.copy(state = Invalid)
         else
           r

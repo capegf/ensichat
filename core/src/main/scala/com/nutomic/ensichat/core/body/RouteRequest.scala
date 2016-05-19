@@ -23,7 +23,7 @@ object RouteRequest {
 
 }
 
-case class RouteRequest(requested: Address, origSeqNum: Int, targSeqNum: Int, originMetric: Int)
+case class RouteRequest(requested: Address, originSeqNum: Int, targSeqNum: Int, originMetric: Int)
   extends MessageBody {
 
   override def protocolType = RouteRequest.Type
@@ -33,7 +33,7 @@ case class RouteRequest(requested: Address, origSeqNum: Int, targSeqNum: Int, or
   override def write: Array[Byte] = {
     val b = ByteBuffer.allocate(length)
     b.put(requested.bytes)
-    BufferUtils.putUnsignedShort(b, origSeqNum)
+    BufferUtils.putUnsignedShort(b, originSeqNum)
     BufferUtils.putUnsignedShort(b, originMetric)
     b.putInt(targSeqNum)
     b.array()

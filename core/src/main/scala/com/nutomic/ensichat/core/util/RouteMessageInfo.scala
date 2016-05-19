@@ -1,11 +1,8 @@
 package com.nutomic.ensichat.core.util
 
-import java.util.Date
-
-import com.nutomic.ensichat.core.body.{RouteRequest, RouteReply}
-import com.nutomic.ensichat.core.{Router, Address, Message}
-
-import com.github.nscala_time.time.Imports._
+import com.nutomic.ensichat.core.body.{RouteReply, RouteRequest}
+import com.nutomic.ensichat.core.{Address, Message, Router}
+import org.joda.time.{DateTime, Duration}
 
 /**
   * Contains information about AODVv2 control messages that have been received.
@@ -17,7 +14,7 @@ import com.github.nscala_time.time.Imports._
   */
 class RouteMessageInfo {
 
-  val MaxSeqnumLifetime = 300.seconds
+  val MaxSeqnumLifetime = Duration.standardSeconds(300)
 
   /**
     * @param messageType Either [[RouteRequest.Type]] or [[RouteReply.Type]].
@@ -43,7 +40,8 @@ class RouteMessageInfo {
                                        DateTime.now)
     case rrep: RouteReply =>
       entries += new RouteMessageEntry(RouteReply.Type, msg.header.origin, msg.header.target,
-        msg.header.seqNum, rrep.originSeqNum, rrep.originMetric, DateTime.now)
+                                       msg.header.seqNum, rrep.originSeqNum, rrep.originMetric,
+                                       DateTime.now)
   }
 
   def isMessageRedundant(msg: Message): Boolean = {
@@ -54,14 +52,14 @@ class RouteMessageInfo {
           e.origAddress == msg.header.origin && e.targAddress == msg.header.target
 
         val (metric, seqNumComparison) = msg.body match {
-          case rreq: RouteRequest => (rreq.originMetric, Router.compare(rreq.origSeqNum, e.origSeqNum))
+          case rreq: RouteRequest => (rreq.originMetric, Router.compare(rreq.originSeqNum, e.origSeqNum))
           case rrep: RouteReply => (rrep.originMetric, Router.compare(rrep.originSeqNum, e.targSeqNum))
         }
-        // "If the entry has a metric value that is better than the metric in the received message,
-        // the message is not redundant" (6,8, p 31)
-        // TODO: that means we're choosing the one with the worse metric???
-        val isMetricWorse = e.metric >= metric
-        haveEntry && (seqNumComparison > 0 || (seqNumComparison == 0 && isMetricWorse))
+        val isMetricBetter = e.metric < metric
+        System.out.println(s"haveEntry=$haveEntry, seqNumComparison=$seqNumComparison, isMetricBetter=$isMetricBetter")
+        val x = haveEntry && (seqNumComparison > 0 || (seqNumComparison == 0 && isMetricBetter))
+        System.out.println(s"x=$x")
+        x
       }
     if (existingEntry.isDefined)
         entries = entries - existingEntry.get
@@ -73,7 +71,7 @@ class RouteMessageInfo {
 
   private def handleTimeouts(): Unit = {
     entries = entries.filter { e =>
-      DateTime.now.isBefore(e.timestamp + MaxSeqnumLifetime)
+      DateTime.now.isBefore(e.timestamp.plus(MaxSeqnumLifetime))
     }
   }
 }
