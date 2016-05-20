@@ -25,11 +25,17 @@ object Main extends App {
   System.out.println("\n\nAll messages sent!\n\n")
 
   private def createMesh(): Seq[LocalNode] = {
-    val nodes = Await.result(Future.sequence(0.to(2).map(createNode)), Duration.Inf)
+    val nodes = Await.result(Future.sequence(0.to(7).map(createNode)), Duration.Inf)
     sys.addShutdownHook(nodes.foreach(_.stop()))
 
     connectNodes(nodes(0), nodes(1))
+    connectNodes(nodes(0), nodes(2))
     connectNodes(nodes(1), nodes(2))
+    connectNodes(nodes(1), nodes(3))
+    connectNodes(nodes(3), nodes(4))
+    connectNodes(nodes(3), nodes(5))
+    connectNodes(nodes(4), nodes(6))
+    connectNodes(nodes(5), nodes(6))
     nodes.foreach(n => System.out.println(s"Node ${n.index} has address ${n.crypto.localAddress}"))
 
     nodes
@@ -41,6 +47,16 @@ object Main extends App {
     Future(new LocalNode(index, configFolder))
   }
 
+  /**
+    * Creates a new mesh with a predefined layout.
+    *
+    * Graphical representation:
+    *   0———1———3———4
+    *    \ /    |   |
+    *     2     5———6
+    *
+    * @return List of [[LocalNode]]s, ordered from 0 to 6.
+    */
   private def connectNodes(first: LocalNode, second: LocalNode): Unit = {
     first.connectionHandler.connect(s"localhost:${second.port}")
 
@@ -62,7 +78,22 @@ object Main extends App {
 
   private def sendMessages(nodes: Seq[LocalNode]): Unit = {
     sendMessage(nodes(0), nodes(1))
+    sendMessage(nodes(1), nodes(0))
     sendMessage(nodes(0), nodes(2))
+    sendMessage(nodes(2), nodes(0))
+    sendMessage(nodes(1), nodes(2))
+    sendMessage(nodes(2), nodes(1))
+    sendMessage(nodes(1), nodes(3))
+    sendMessage(nodes(4), nodes(3))
+    sendMessage(nodes(3), nodes(5))
+    sendMessage(nodes(4), nodes(6))
+    sendMessage(nodes(2), nodes(3))
+    sendMessage(nodes(0), nodes(3))
+    sendMessage(nodes(3), nodes(6))
+    sendMessage(nodes(4), nodes(1))
+    sendMessage(nodes(5), nodes(1))
+    sendMessage(nodes(3), nodes(2))
+    sendMessage(nodes(6), nodes(0))
   }
 
 
