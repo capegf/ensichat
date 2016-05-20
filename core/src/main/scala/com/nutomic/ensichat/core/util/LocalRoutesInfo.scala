@@ -78,19 +78,19 @@ class LocalRoutesInfo(activeConnections: () => Set[Address]) {
 
   /**
     *
-    * @param neighbor The address of a neighbor which has disconnected.
+    * @param address The address which can't be reached any more.
     * @return The set of active destinations that can't be reached anymore.
     */
-  def connectionClosed(neighbor: Address): Set[Address] = {
+  def connectionClosed(address: Address): Set[Address] = {
     handleTimeouts()
 
     val affectedDestinations =
       routes
-        .filter(r => r.state == Active && r.nextHop == neighbor)
+        .filter(r => r.state == Active && (r.nextHop == address || r.destination == address))
         .map(_.destination)
 
     routes = routes.map { r =>
-      if (r.nextHop == neighbor)
+      if (r.nextHop == address || r.destination == address)
         r.copy(state = Invalid)
       else
         r

@@ -14,15 +14,14 @@ object RouteError {
    */
   def read(array: Array[Byte]): RouteError = {
     val b = ByteBuffer.wrap(array)
-    val packetSource = new Address(BufferUtils.getByteArray(b, Address.Length))
     val address = new Address(BufferUtils.getByteArray(b, Address.Length))
     val seqNum = b.getInt
-    new RouteError(packetSource, address, seqNum)
+    new RouteError(address, seqNum)
   }
 
 }
 
-case class RouteError(packetSource: Address, address: Address, seqNum: Int) extends MessageBody {
+case class RouteError(address: Address, seqNum: Int) extends MessageBody {
 
   override def protocolType = RouteReply.Type
 
@@ -30,12 +29,11 @@ case class RouteError(packetSource: Address, address: Address, seqNum: Int) exte
 
   override def write: Array[Byte] = {
     val b = ByteBuffer.allocate(length)
-    b.put(packetSource.bytes)
     b.put(address.bytes)
     b.putInt(seqNum)
     b.array()
   }
 
-  override def length = Address.Length * 2 + 4
+  override def length = Address.Length + 4
 
 }

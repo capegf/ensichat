@@ -115,16 +115,16 @@ final class ConnectionHandler(settings: SettingsInterface, database: Database,
     val header = new MessageHeader(body.protocolType, crypto.localAddress, replyTo, seqNum)
 
     val msg = new Message(header, body)
+
     router.forwardMessage(crypto.sign(msg))
   }
 
   def routeError(address: Address, packetSource: Option[Address]): Unit =  {
-    // TODO avoid duplicate messages, respect aodv control message limit
     val destination = packetSource.getOrElse(Address.Broadcast)
     val header = new MessageHeader(RouteError.Type, crypto.localAddress, destination,
                                    seqNumGenerator.next())
     val seqNum = localRoutesInfo.getRoute(address).map(_.seqNum).getOrElse(-1)
-    val body = new RouteError(packetSource.getOrElse(Address.Null), address, seqNum)
+    val body = new RouteError(address, seqNum)
     router.forwardMessage(crypto.sign(new Message(header, body)))
   }
 
@@ -190,8 +190,12 @@ final class ConnectionHandler(settings: SettingsInterface, database: Database,
         resendMissingRouteMessages()
         return
       case rerr: RouteError =>
-        // TODO: 7.4.2 RERR Reception
-        // TODO: 7.4.3 RERR Regeneration
+        localRoutesInfo.getRoute(rerr.address).foreach { route =>
+          if (route.nextHop == msg.header.origin && (rerr.seqNum == 0 || rerr.seqNum > route.seqNum)) {
+            localRoutesInfo.connectionClosed(rerr.address)
+              .foreach(routeError(_, None))
+          }
+        }
       case _ =>
     }
 
