@@ -56,10 +56,7 @@ class RouteMessageInfo {
           case rrep: RouteReply => (rrep.originMetric, Router.compare(rrep.originSeqNum, e.targSeqNum))
         }
         val isMetricBetter = e.metric < metric
-        System.out.println(s"haveEntry=$haveEntry, seqNumComparison=$seqNumComparison, isMetricBetter=$isMetricBetter")
-        val x = haveEntry && (seqNumComparison > 0 || (seqNumComparison == 0 && isMetricBetter))
-        System.out.println(s"x=$x")
-        x
+        haveEntry && (seqNumComparison > 0 || (seqNumComparison == 0 && isMetricBetter))
       }
     if (existingEntry.isDefined)
         entries = entries - existingEntry.get

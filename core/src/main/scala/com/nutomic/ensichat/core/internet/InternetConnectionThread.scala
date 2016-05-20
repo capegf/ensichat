@@ -78,7 +78,6 @@ class InternetConnectionThread(socket: Socket, crypto: Crypto, onDisconnected: (
     } catch {
       case e: IOException => logger.warn("Failed to close socket", e)
     }
-    logger.debug("Connection to " + socket.getInetAddress + " closed")
     onDisconnected(this)
   }
 

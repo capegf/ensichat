@@ -114,9 +114,8 @@ final class ConnectionHandler(settings: SettingsInterface, database: Database,
     val body = new RouteReply(seqNum, 0)
     val header = new MessageHeader(body.protocolType, crypto.localAddress, replyTo, seqNum)
 
-    val msg = new Message(header, body)
-
-    router.forwardMessage(crypto.sign(msg))
+    val signed = crypto.sign(new Message(header, body))
+    router.forwardMessage(signed)
   }
 
   def routeError(address: Address, packetSource: Option[Address]): Unit =  {
@@ -125,7 +124,9 @@ final class ConnectionHandler(settings: SettingsInterface, database: Database,
                                    seqNumGenerator.next())
     val seqNum = localRoutesInfo.getRoute(address).map(_.seqNum).getOrElse(-1)
     val body = new RouteError(address, seqNum)
-    router.forwardMessage(crypto.sign(new Message(header, body)))
+
+    val signed = crypto.sign(new Message(header, body))
+    router.forwardMessage(signed)
   }
 
   /**
@@ -160,10 +161,10 @@ final class ConnectionHandler(settings: SettingsInterface, database: Database,
         else {
           val body = rreq.copy(originMetric = rreq.originMetric + 1)
 
-          val newMsg = new Message(msg.header, body)
+          val forwardMsg = crypto.sign(new Message(msg.header, body))
           localRoutesInfo.getRoute(rreq.requested) match {
-            case Some(route) => router.forwardMessage(newMsg, Option(route.nextHop))
-            case None => router.forwardMessage(newMsg, Option(Address.Broadcast))
+            case Some(route) => router.forwardMessage(forwardMsg, Option(route.nextHop))
+            case None => router.forwardMessage(forwardMsg, Option(Address.Broadcast))
           }
         }
         return
@@ -171,6 +172,8 @@ final class ConnectionHandler(settings: SettingsInterface, database: Database,
         localRoutesInfo.addRoute(msg.header.origin, rrep.originSeqNum, previousHop, 0)
         if (routeMessageInfo.isMessageRedundant(msg))
           return
+
+        resendMissingRouteMessages()
 
         if (msg.header.target == crypto.localAddress)
           return
@@ -184,10 +187,8 @@ final class ConnectionHandler(settings: SettingsInterface, database: Database,
 
         val body = rrep.copy(originMetric = rrep.originMetric + 1)
 
-        val msg2 = new Message(msg.header, body)
-        router.forwardMessage(msg2)
-
-        resendMissingRouteMessages()
+        val forwardMsg = crypto.sign(new Message(msg.header, body))
+        router.forwardMessage(forwardMsg)
         return
       case rerr: RouteError =>
         localRoutesInfo.getRoute(rerr.address).foreach { route =>
@@ -221,7 +222,6 @@ final class ConnectionHandler(settings: SettingsInterface, database: Database,
           return
       }
 
-    logger.debug(s"received message $plainMsg")
     onNewMessage(plainMsg)
   }
 
@@ -245,7 +245,6 @@ final class ConnectionHandler(settings: SettingsInterface, database: Database,
   }
 
   private def noRouteFound(message: Message): Unit = {
-    logger.debug(s"no route found on node ${crypto.localAddress.toString.split("-").head}")
     if (message.header.origin == crypto.localAddress) {
       missingRouteMessages += ((message, new Date()))
       requestRoute(message.header.target)

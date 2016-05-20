@@ -63,7 +63,7 @@ final private[core] class Router(routesInfo: LocalRoutesInfo, send: (Address, Me
       return
     }
 
-    routesInfo.getRoute(msg.header.target).map(_.nextHop) match {
+    routesInfo.getRoute(nextHop).map(_.nextHop) match {
       case Some(a) =>
         send(a, incHopCount(msg))
         markMessageSeen((msg.header.origin, msg.header.seqNum))

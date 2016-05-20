@@ -87,10 +87,7 @@ case class Message(header: AbstractHeader, crypto: CryptoData, body: MessageBody
     header.write(body.length + crypto.length) ++ crypto.write ++ body.write
   }
 
-  override def toString = {
-    val origin = header.origin.toString().split("-").head
-    val target = header.target.toString().split("-").head
-    s"Message($origin(${header.seqNum}) -> $target: $body"
-  }
+  override def toString =
+    s"Message(${header.origin.short}(${header.seqNum}) -> ${header.target.short}: $body)"
 
 }

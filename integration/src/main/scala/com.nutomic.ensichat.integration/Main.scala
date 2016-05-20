@@ -20,6 +20,7 @@ object Main extends App {
 
   val nodes = createMesh()
   System.out.println("\n\nAll nodes connected!\n\n")
+
   sendMessages(nodes)
   System.out.println("\n\nAll messages sent!\n\n")
 
@@ -29,7 +30,7 @@ object Main extends App {
 
     connectNodes(nodes(0), nodes(1))
     connectNodes(nodes(1), nodes(2))
-    nodes.zipWithIndex.foreach(n => System.out.println(s"node(${n._2}) has address ${n._1.crypto.localAddress}"))
+    nodes.foreach(n => System.out.println(s"Node ${n.index} has address ${n.crypto.localAddress}"))
 
     nodes
   }
