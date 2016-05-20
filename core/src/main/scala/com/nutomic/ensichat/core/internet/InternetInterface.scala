@@ -12,7 +12,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.util.Random
 
-object InternetInterface {
+private[core] object InternetInterface {
 
   val DefaultPort = 26344
 
@@ -23,7 +23,7 @@ object InternetInterface {
  *
  * @param maxConnections Maximum number of concurrent connections that should be opened.
  */
-class InternetInterface(connectionHandler: ConnectionHandler, crypto: Crypto,
+private[core] class InternetInterface(connectionHandler: ConnectionHandler, crypto: Crypto,
                         settings: SettingsInterface, maxConnections: Int, port: Int)
   extends TransmissionInterface {
 

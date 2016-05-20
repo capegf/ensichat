@@ -5,7 +5,7 @@ import com.nutomic.ensichat.core.util.LocalRoutesInfo._
 import com.typesafe.scalalogging.Logger
 import org.joda.time.{DateTime, Duration}
 
-object LocalRoutesInfo {
+private[core] object LocalRoutesInfo {
 
   private val ActiveInterval = Duration.standardSeconds(5)
 
@@ -31,10 +31,9 @@ object LocalRoutesInfo {
   * See AODVv2-13 4.5 (Local Route Set),              -> implemented
   *               6.9 (Local Route Set Maintenance)   -> implemented (hopefully correct)
   */
-class LocalRoutesInfo(activeConnections: () => Set[Address]) {
+private[core] class LocalRoutesInfo(activeConnections: () => Set[Address]) {
 
   import RouteStates._
-  private val logger = Logger(this.getClass)
 
   private val MaxSeqnumLifetime = Duration.standardSeconds(300)
   // TODO: this can probably be much higher because of infrequent topology changes between internet nodes

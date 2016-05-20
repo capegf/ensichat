@@ -109,7 +109,7 @@ final class ConnectionHandler(settings: SettingsInterface, database: Database,
     router.forwardMessage(signed)
   }
 
-  def replyRoute(target: Address, replyTo: Address): Unit = {
+  private def replyRoute(target: Address, replyTo: Address): Unit = {
     val seqNum = seqNumGenerator.next()
     val body = new RouteReply(seqNum, 0)
     val header = new MessageHeader(body.protocolType, crypto.localAddress, replyTo, seqNum)
@@ -118,7 +118,7 @@ final class ConnectionHandler(settings: SettingsInterface, database: Database,
     router.forwardMessage(signed)
   }
 
-  def routeError(address: Address, packetSource: Option[Address]): Unit =  {
+  private def routeError(address: Address, packetSource: Option[Address]): Unit =  {
     val destination = packetSource.getOrElse(Address.Broadcast)
     val header = new MessageHeader(RouteError.Type, crypto.localAddress, destination,
                                    seqNumGenerator.next())
@@ -338,6 +338,9 @@ final class ConnectionHandler(settings: SettingsInterface, database: Database,
       .find(_.address == address)
       .getOrElse(new User(address, address.toString(), ""))
 
+  /**
+    * This method should be called when the local device's internet connection has changed in any way.
+    */
   def internetConnectionChanged(): Unit = {
     transmissionInterfaces
       .find(_.isInstanceOf[InternetInterface])

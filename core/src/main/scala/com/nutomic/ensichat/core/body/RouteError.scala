@@ -5,7 +5,7 @@ import java.nio.ByteBuffer
 import com.nutomic.ensichat.core.Address
 import com.nutomic.ensichat.core.util.BufferUtils
 
-object RouteError {
+private[core] object RouteError {
 
   val Type = 4
 
@@ -21,7 +21,7 @@ object RouteError {
 
 }
 
-case class RouteError(address: Address, seqNum: Int) extends MessageBody {
+private[core] case class RouteError(address: Address, seqNum: Int) extends MessageBody {
 
   override def protocolType = RouteReply.Type
 

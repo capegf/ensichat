@@ -2,10 +2,9 @@ package com.nutomic.ensichat.core.body
 
 import java.nio.ByteBuffer
 
-import com.nutomic.ensichat.core.Address
 import com.nutomic.ensichat.core.util.BufferUtils
 
-object RouteReply {
+private[core] object RouteReply {
 
   val Type = 3
 
@@ -33,7 +32,7 @@ object RouteReply {
   * @param originSeqNum The current sequence number of the node sending this message.
   * @param originMetric The metric of the current route to the sending node.
   */
-case class RouteReply(originSeqNum: Int, originMetric: Int) extends MessageBody {
+private[core] case class RouteReply(originSeqNum: Int, originMetric: Int) extends MessageBody {
 
   override def protocolType = RouteReply.Type
 

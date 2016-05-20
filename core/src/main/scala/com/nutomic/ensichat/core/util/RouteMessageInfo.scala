@@ -12,9 +12,9 @@ import org.joda.time.{DateTime, Duration}
   * See AODVv2-13 4.6 (Multicast Route Message Table),                                        -> implemented
   *               6.8 (Surpressing Redundant Messages Using the Multicast Route Message Table) -> implemented  (hopefully correct)
   */
-class RouteMessageInfo {
+private[core] class RouteMessageInfo {
 
-  val MaxSeqnumLifetime = Duration.standardSeconds(300)
+  private val MaxSeqnumLifetime = Duration.standardSeconds(300)
 
   /**
     * @param messageType Either [[RouteRequest.Type]] or [[RouteReply.Type]].
@@ -27,9 +27,9 @@ class RouteMessageInfo {
     * @param metric Metric value received in the route message.
     * @param timestamp Last time this entry was updated.
     */
-  case class RouteMessageEntry(messageType: Int, origAddress: Address,
-                               targAddress: Address, origSeqNum: Int, targSeqNum: Int,
-                               metric: Int, timestamp: DateTime)
+  private case class RouteMessageEntry(messageType: Int, origAddress: Address,
+                                       targAddress: Address, origSeqNum: Int, targSeqNum: Int,
+                                       metric: Int, timestamp: DateTime)
 
   private var entries = Set[RouteMessageEntry]()
 

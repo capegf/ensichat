@@ -5,7 +5,7 @@ import java.nio.ByteBuffer
 import com.nutomic.ensichat.core.Address
 import com.nutomic.ensichat.core.util.BufferUtils
 
-object RouteRequest {
+private[core] object RouteRequest {
 
   val Type = 2
 
@@ -23,7 +23,7 @@ object RouteRequest {
 
 }
 
-case class RouteRequest(requested: Address, originSeqNum: Int, targSeqNum: Int, originMetric: Int)
+private[core] case class RouteRequest(requested: Address, originSeqNum: Int, targSeqNum: Int, originMetric: Int)
   extends MessageBody {
 
   override def protocolType = RouteRequest.Type

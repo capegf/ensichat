@@ -4,7 +4,6 @@ import java.util.Comparator
 
 import com.nutomic.ensichat.core.header.{ContentHeader, MessageHeader}
 import com.nutomic.ensichat.core.util.LocalRoutesInfo
-import com.typesafe.scalalogging.Logger
 
 object Router extends Comparator[Int] {
 
@@ -31,17 +30,15 @@ object Router extends Comparator[Int] {
 /**
  * Forwards messages to all connected devices.
  */
-final private[core] class Router(routesInfo: LocalRoutesInfo, send: (Address, Message) => Unit,
+private[core] class Router(routesInfo: LocalRoutesInfo, send: (Address, Message) => Unit,
                                  noRouteFound: (Message) => Unit) {
-
-  private val logger = Logger(this.getClass)
 
   private var messageSeen = Set[(Address, Int)]()
 
   /**
    * Returns true if we have received the same message before.
    */
-  def isMessageSeen(msg: Message): Boolean = {
+  private[core] def isMessageSeen(msg: Message): Boolean = {
     val info = (msg.header.origin, msg.header.seqNum)
     val seen = messageSeen.contains(info)
     markMessageSeen(info)
