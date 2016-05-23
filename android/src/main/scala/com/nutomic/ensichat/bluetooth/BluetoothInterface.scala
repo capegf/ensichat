@@ -170,10 +170,11 @@ class BluetoothInterface(context: Context, mainHandler: Handler,
    * Removes device from active connections.
    */
   def onConnectionClosed(device: Device, socket: BluetoothSocket): Unit = {
+    val address = getAddressForDevice(device.id)
     devices -= device.id
     connections -= device.id
     addressDeviceMap = addressDeviceMap.filterNot(_._2 == device.id)
-    connectionHandler.onConnectionClosed(getAddressForDevice(device.id))
+    connectionHandler.onConnectionClosed(address)
   }
 
   /**
