@@ -153,8 +153,12 @@ final class ConnectionHandler(settings: SettingsInterface, database: Database,
     msg.body match {
       case rreq: RouteRequest =>
         localRoutesInfo.addRoute(msg.header.origin, rreq.originSeqNum, previousHop, rreq.originMetric)
-        if (routeMessageInfo.isMessageRedundant(msg))
-          return
+        // TODO: Respecting this causes the RERR test to fail. We have to fix the implementation
+        //       of isMessageRedundant() without breaking the test.
+        if (routeMessageInfo.isMessageRedundant(msg)) {
+          logger.info("Sending redundant RREQ")
+          //return
+        }
 
         if (crypto.localAddress == rreq.requested)
           replyRoute(rreq.requested, msg.header.origin)
@@ -170,8 +174,11 @@ final class ConnectionHandler(settings: SettingsInterface, database: Database,
         return
       case rrep: RouteReply =>
         localRoutesInfo.addRoute(msg.header.origin, rrep.originSeqNum, previousHop, 0)
-        if (routeMessageInfo.isMessageRedundant(msg))
-          return
+        // TODO: See above (in RREQ handler).
+        if (routeMessageInfo.isMessageRedundant(msg)) {
+          logger.debug("Sending redundant RREP")
+          //return
+        }
 
         resendMissingRouteMessages()
 

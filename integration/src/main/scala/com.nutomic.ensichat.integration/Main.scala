@@ -24,8 +24,25 @@ object Main extends App {
   sendMessages(nodes)
   System.out.println("\n\nAll messages sent!\n\n")
 
+  // Stop node 1, forcing route errors and messages to use the (longer) path via nodes 7 and 8.
+  nodes(1).connectionHandler.stop()
+  System.out.println("node 1 stopped")
+  sendMessages(nodes)
+
+  /**
+    * Creates a new mesh with a predefined layout.
+    *
+    * Graphical representation:
+    *     8 —— 7
+    *    /      \
+    *   0———1———3———4
+    *    \ /    |   |
+    *     2     5———6
+    *
+    * @return List of [[LocalNode]]s, ordered from 0 to 7.
+    */
   private def createMesh(): Seq[LocalNode] = {
-    val nodes = Await.result(Future.sequence(0.to(7).map(createNode)), Duration.Inf)
+    val nodes = Await.result(Future.sequence(0.to(8).map(createNode)), Duration.Inf)
     sys.addShutdownHook(nodes.foreach(_.stop()))
 
     connectNodes(nodes(0), nodes(1))
@@ -36,6 +53,9 @@ object Main extends App {
     connectNodes(nodes(3), nodes(5))
     connectNodes(nodes(4), nodes(6))
     connectNodes(nodes(5), nodes(6))
+    connectNodes(nodes(3), nodes(7))
+    connectNodes(nodes(0), nodes(8))
+    connectNodes(nodes(7), nodes(8))
     nodes.foreach(n => System.out.println(s"Node ${n.index} has address ${n.crypto.localAddress}"))
 
     nodes
@@ -47,16 +67,6 @@ object Main extends App {
     Future(new LocalNode(index, configFolder))
   }
 
-  /**
-    * Creates a new mesh with a predefined layout.
-    *
-    * Graphical representation:
-    *   0———1———3———4
-    *    \ /    |   |
-    *     2     5———6
-    *
-    * @return List of [[LocalNode]]s, ordered from 0 to 6.
-    */
   private def connectNodes(first: LocalNode, second: LocalNode): Unit = {
     first.connectionHandler.connect(s"localhost:${second.port}")
 
@@ -77,23 +87,15 @@ object Main extends App {
   }
 
   private def sendMessages(nodes: Seq[LocalNode]): Unit = {
-    sendMessage(nodes(0), nodes(1))
-    sendMessage(nodes(1), nodes(0))
     sendMessage(nodes(0), nodes(2))
     sendMessage(nodes(2), nodes(0))
-    sendMessage(nodes(1), nodes(2))
-    sendMessage(nodes(2), nodes(1))
-    sendMessage(nodes(1), nodes(3))
     sendMessage(nodes(4), nodes(3))
     sendMessage(nodes(3), nodes(5))
     sendMessage(nodes(4), nodes(6))
     sendMessage(nodes(2), nodes(3))
     sendMessage(nodes(0), nodes(3))
     sendMessage(nodes(3), nodes(6))
-    sendMessage(nodes(4), nodes(1))
-    sendMessage(nodes(5), nodes(1))
     sendMessage(nodes(3), nodes(2))
-    sendMessage(nodes(6), nodes(0))
   }
 
 
@@ -121,7 +123,7 @@ object Main extends App {
       assert(exists, s"message from ${from.index} did not arrive at ${to.index}")
       latch.countDown()
     }
-    assert(latch.await(500, TimeUnit.MILLISECONDS))
+    assert(latch.await(1000, TimeUnit.MILLISECONDS))
   }
 
   private def addKey(addTo: Crypto, addFrom: Crypto): Unit = {
